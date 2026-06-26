@@ -86,3 +86,7 @@ vector:
     - 已回复
     - 关闭
     - 已完成
+
+jwt:
+  secret: your-256-bit-secret-key-for-jwt-signing-change-in-production
+  expiration: 86400000
