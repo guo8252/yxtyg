@@ -66,6 +66,18 @@
             </el-menu-item>
           </el-submenu>
 
+          <!-- 需求管理 -->
+          <el-menu-item index="/requirement" v-if="isDevOrAdmin">
+            <i class="el-icon-document"></i>
+            <span slot="title">需求管理</span>
+          </el-menu-item>
+
+          <!-- 用户管理 -->
+          <el-menu-item index="/user" v-if="isSysAdmin">
+            <i class="el-icon-user-solid"></i>
+            <span slot="title">用户管理</span>
+          </el-menu-item>
+
           <!-- 模型设置 -->
           <el-submenu index="model">
             <template slot="title">
@@ -104,6 +116,13 @@ export default {
   computed: {
     activeMenu() {
       return this.$route.path
+    },
+    isSysAdmin() {
+      return this.$store.state.user.userInfo.role === 'SYS_ADMIN'
+    },
+    isDevOrAdmin() {
+      const role = this.$store.state.user.userInfo.role
+      return role === 'DEV_ADMIN' || role === 'SYS_ADMIN' || role === 'PRODUCT_MANAGER'
     }
   }
 }
