@@ -305,6 +305,7 @@ CREATE TABLE t_urge_record (
     requirement_id BIGINT NOT NULL COMMENT '需求ID',
     operator_id BIGINT NOT NULL COMMENT '操作人ID',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '催办时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     deleted TINYINT DEFAULT 0 COMMENT '逻辑删除',
     PRIMARY KEY (id),
     KEY idx_requirement_id (requirement_id),
@@ -313,7 +314,7 @@ CREATE TABLE t_urge_record (
 
 -- 初始化默认系统管理员
 INSERT INTO t_user (username, real_name, password, role, status) VALUES
-('admin', '系统管理员', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EO', 'SYS_ADMIN', 1);
+('admin', '系统管理员', '$2a$10$2S9jLyz/uX85b/UsnobQoez8w4evmFZad1yw7lA/4ejj/DpcFC//.', 'SYS_ADMIN', 1);
 
 -- =============================================
 -- MySQL 配置建议

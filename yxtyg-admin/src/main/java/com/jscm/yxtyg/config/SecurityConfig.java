@@ -30,6 +30,7 @@ public class SecurityConfig {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .authorizeRequests()
+                .antMatchers("/", "/index.html", "/static/**", "/js/**", "/css/**", "/fonts/**", "/favicon.ico").permitAll()
                 .antMatchers("/api/auth/login").permitAll()
                 .antMatchers("/api/user/**").hasRole("SYS_ADMIN")
                 .antMatchers("/api/urge/**").hasRole("DEV_ADMIN")
