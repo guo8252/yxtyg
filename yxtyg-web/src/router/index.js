@@ -51,6 +51,12 @@ const routes = [
     meta: { title: '需求管理' }
   },
   {
+    path: '/requirement/form/:id?',
+    name: 'RequirementForm',
+    component: () => import('../views/RequirementForm.vue'),
+    meta: { title: '需求编辑' }
+  },
+  {
     path: '/model-config',
     name: 'ModelConfig',
     component: () => import('../views/ModelConfig.vue'),
