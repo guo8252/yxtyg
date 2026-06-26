@@ -14,7 +14,7 @@ public interface RequirementService {
     PageResult<RequirementVO> queryPage(RequirementQueryDTO queryDTO, Long currentUserId, String role);
     RequirementDetailVO getDetail(Long id, Long currentUserId, String role);
     void create(RequirementDTO dto);
-    void update(Long id, RequirementDTO dto);
+    void update(Long id, RequirementDTO dto, Long currentUserId, String role);
     void delete(Long id);
     Map<String, Object> importExcel(MultipartFile file);
     byte[] downloadTemplate();

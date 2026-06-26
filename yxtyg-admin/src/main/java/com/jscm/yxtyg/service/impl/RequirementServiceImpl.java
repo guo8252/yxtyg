@@ -93,6 +93,7 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void create(RequirementDTO dto) {
+        validateRequirementFields(dto);
         validateProductManager(dto.getProductManagerId());
         Requirement req = new Requirement();
         BeanUtils.copyProperties(dto, req);
@@ -103,13 +104,25 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void update(Long id, RequirementDTO dto) {
+    public void update(Long id, RequirementDTO dto, Long currentUserId, String role) {
         Requirement req = this.getById(id);
         if (req == null) {
             throw new BusinessException("需求不存在");
         }
+        validateRequirementFields(dto);
         validateProductManager(dto.getProductManagerId());
-        BeanUtils.copyProperties(dto, req, "status");
+        if ("PRODUCT_MANAGER".equals(role)) {
+            if (!Objects.equals(req.getProductManagerId(), currentUserId)) {
+                throw new BusinessException("无权限修改该需求");
+            }
+            if (!Objects.equals(dto.getProductManagerId(), currentUserId)) {
+                throw new BusinessException("不能变更产品经理");
+            }
+            if (!STATUS_PENDING.equals(req.getStatus())) {
+                throw new BusinessException("只能修改待填写状态的需求");
+            }
+        }
+        BeanUtils.copyProperties(dto, req, "status", "finalWorkload");
         req.setId(id);
         recalculateReduced(req);
         this.updateById(req);
@@ -217,6 +230,12 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void fillFinalWorkload(Long id, Long currentUserId, String role, BigDecimal finalWorkload) {
+        if (finalWorkload == null) {
+            throw new BusinessException("最终核定工作量不能为空");
+        }
+        if (finalWorkload.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("最终核定工作量不能小于0");
+        }
         Requirement req = this.getById(id);
         if (req == null) {
             throw new BusinessException("需求不存在");
@@ -257,6 +276,27 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
         User user = userMapper.selectById(productManagerId);
         if (user == null || !"PRODUCT_MANAGER".equals(user.getRole())) {
             throw new BusinessException("产品经理不存在或角色不正确");
+        }
+    }
+
+    private void validateRequirementFields(RequirementDTO dto) {
+        if (!StringUtils.hasText(dto.getName())) {
+            throw new BusinessException("需求名称不能为空");
+        }
+        if (!StringUtils.hasText(dto.getSystemName())) {
+            throw new BusinessException("归属系统不能为空");
+        }
+        if (dto.getInitialWorkload() == null) {
+            throw new BusinessException("初核工作量不能为空");
+        }
+        if (dto.getInitialWorkload().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("初核工作量必须大于0");
+        }
+        if (dto.getInitialAmount() == null) {
+            throw new BusinessException("初核金额不能为空");
+        }
+        if (dto.getInitialAmount().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("初核金额不能小于0");
         }
     }
 

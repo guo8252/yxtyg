@@ -6,5 +6,5 @@ spring:
     driver-class-name: org.h2.Driver
 
 jwt:
-  secret: your-256-bit-secret-key-for-jwt-signing-change-in-production
+  secret: ${JWT_SECRET:}
   expiration: 86400000

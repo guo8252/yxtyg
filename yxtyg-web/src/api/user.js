@@ -8,6 +8,14 @@ export function getUserList(params) {
   })
 }
 
+export function getProductManagers(params) {
+  return request({
+    url: '/user/product-managers',
+    method: 'get',
+    params
+  })
+}
+
 export function createUser(data) {
   return request({
     url: '/user',

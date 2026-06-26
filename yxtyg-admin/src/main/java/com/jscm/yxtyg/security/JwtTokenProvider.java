@@ -7,6 +7,7 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import javax.crypto.SecretKey;
@@ -29,10 +30,12 @@ public class JwtTokenProvider {
 
     @PostConstruct
     public void init() {
-        if (DEFAULT_SECRET.equals(secret)) {
-            log.warn("JWT 密钥使用了默认占位符，生产环境必须替换为随机强密钥");
+        if (!StringUtils.hasText(secret) || DEFAULT_SECRET.equals(secret)) {
+            log.warn("JWT 密钥未配置或使用了默认占位符，将生成临时随机密钥。生产环境必须在 JWT_SECRET 环境变量中配置强密钥");
+            this.key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+        } else {
+            this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         }
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateToken(Long userId, String username, String role) {

@@ -39,7 +39,7 @@
         <el-form-item label="初核工作量" prop="initialWorkload">
           <el-input-number
             v-model="form.initialWorkload"
-            :min="0"
+            :min="0.01"
             :precision="2"
             :controls="false"
             placeholder="请输入初核工作量"
@@ -58,28 +58,6 @@
           />
         </el-form-item>
 
-        <el-form-item v-if="isEdit" label="最终核定工作量" prop="finalWorkload">
-          <el-input-number
-            v-model="form.finalWorkload"
-            :min="0"
-            :precision="2"
-            :controls="false"
-            placeholder="请输入最终核定工作量"
-            style="width: 100%"
-          />
-        </el-form-item>
-
-        <el-form-item v-if="isEdit" label="状态" prop="status">
-          <el-select v-model="form.status" placeholder="请选择状态" style="width: 100%">
-            <el-option
-              v-for="item in statusOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
-
         <el-form-item>
           <el-button type="primary" @click="handleSubmit">保存</el-button>
           <el-button @click="handleCancel">取消</el-button>
@@ -91,17 +69,12 @@
 
 <script>
 import { createRequirement, updateRequirement, getRequirementDetail } from '@/api/requirement'
-import { getUserList } from '@/api/user'
+import { getProductManagers } from '@/api/user'
 
 export default {
   name: 'RequirementForm',
   data() {
     return {
-      statusOptions: [
-        { value: 'PENDING', label: '待填写' },
-        { value: 'FILLED', label: '已填写' },
-        { value: 'APPROVED', label: '已核定' }
-      ],
       productManagers: [],
       form: {
         id: null,
@@ -110,9 +83,7 @@ export default {
         productManagerId: null,
         systemName: '',
         initialWorkload: undefined,
-        initialAmount: undefined,
-        finalWorkload: undefined,
-        status: 'PENDING'
+        initialAmount: undefined
       },
       rules: {
         name: [{ required: true, message: '请输入需求名称', trigger: 'blur' }],
@@ -136,7 +107,7 @@ export default {
   },
   methods: {
     loadProductManagers() {
-      getUserList({ role: 'PRODUCT_MANAGER', current: 1, size: 1000 }).then(res => {
+      getProductManagers({ current: 1, size: 1000 }).then(res => {
         if (res.code === 200) {
           this.productManagers = res.data.records || []
         }
@@ -153,9 +124,7 @@ export default {
             productManagerId: data.productManagerId,
             systemName: data.systemName,
             initialWorkload: data.initialWorkload,
-            initialAmount: data.initialAmount,
-            finalWorkload: data.finalWorkload,
-            status: data.status || 'PENDING'
+            initialAmount: data.initialAmount
           }
         }
       })

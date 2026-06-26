@@ -9,6 +9,11 @@
         <el-form-item label="归属系统">
           <el-input v-model="queryParams.systemName" placeholder="请输入" clearable style="width: 140px" />
         </el-form-item>
+        <el-form-item label="产品经理">
+          <el-select v-model="queryParams.productManagerId" clearable placeholder="请选择" style="width: 140px">
+            <el-option v-for="pm in productManagers" :key="pm.id" :label="pm.realName || pm.username" :value="pm.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="queryParams.status" clearable placeholder="请选择" style="width: 110px">
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -36,7 +41,7 @@
             :before-upload="beforeUpload">
             <el-button type="primary" size="small" icon="el-icon-upload2">导入 Excel</el-button>
           </el-upload>
-          <el-button type="primary" size="small" icon="el-icon-plus" @click="handleAdd">新增需求</el-button>
+          <el-button v-if="isAdminOrDev" type="primary" size="small" icon="el-icon-plus" @click="handleAdd">新增需求</el-button>
         </div>
       </div>
 
@@ -52,10 +57,10 @@
             <el-tag size="small" :type="getStatusType(scope.row.status)">{{ scope.row.statusLabel || '-' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template slot-scope="scope">
-            <el-button type="text" size="small" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button type="text" size="small" style="color: #f56c6c" @click="handleDelete(scope.row)">删除</el-button>
+            <el-button v-if="canEdit(scope.row)" type="text" size="small" @click="handleEdit(scope.row)">编辑</el-button>
+            <el-button v-if="canDelete(scope.row)" type="text" size="small" style="color: #f56c6c" @click="handleDelete(scope.row)">删除</el-button>
             <el-button
               v-if="canFill(scope.row)"
               type="text"
@@ -65,7 +70,15 @@
               填写
             </el-button>
             <el-button
-              v-if="isDevAdmin"
+              v-if="canApprove(scope.row)"
+              type="text"
+              size="small"
+              style="color: #409eff"
+              @click="handleApprove(scope.row)">
+              核定
+            </el-button>
+            <el-button
+              v-if="isAdminOrDev"
               type="text"
               size="small"
               style="color: #e6a23c"
@@ -87,36 +100,6 @@
         style="margin-top: 15px; text-align: right"
       />
     </el-card>
-
-    <!-- 新增/编辑弹窗 -->
-    <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="700px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="110px" size="small">
-        <el-form-item label="需求名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入需求名称" />
-        </el-form-item>
-        <el-form-item label="产品经理" prop="productManagerId">
-          <el-select v-model="form.productManagerId" filterable placeholder="请选择产品经理" style="width: 100%">
-            <el-option v-for="pm in productManagers" :key="pm.id" :label="pm.realName || pm.username" :value="pm.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="归属系统" prop="systemName">
-          <el-input v-model="form.systemName" placeholder="请输入归属系统" />
-        </el-form-item>
-        <el-form-item label="初核工作量" prop="initialWorkload">
-          <el-input-number v-model="form.initialWorkload" :min="0" :precision="2" :controls="false" placeholder="请输入" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="初核金额" prop="initialAmount">
-          <el-input-number v-model="form.initialAmount" :min="0" :precision="2" :controls="false" placeholder="请输入" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="需求描述">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入需求描述" />
-        </el-form-item>
-      </el-form>
-      <span slot="footer">
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
-      </span>
-    </el-dialog>
 
     <!-- 填写最终工作量弹窗 -->
     <el-dialog title="填写最终工作量" :visible.sync="fillVisible" width="500px">
@@ -161,15 +144,14 @@
 <script>
 import {
   getRequirementList,
-  createRequirement,
-  updateRequirement,
   deleteRequirement,
   importRequirement,
   downloadTemplate,
-  fillFinalWorkload
+  fillFinalWorkload,
+  approveRequirement
 } from '@/api/requirement'
 import { urgeRequirement } from '@/api/urge'
-import { getUserList } from '@/api/user'
+import { getProductManagers } from '@/api/user'
 
 export default {
   name: 'Requirement',
@@ -185,30 +167,13 @@ export default {
         name: '',
         systemName: '',
         status: '',
+        productManagerId: null,
         current: 1,
         size: 10
       },
       tableData: [],
       total: 0,
       productManagers: [],
-      dialogVisible: false,
-      dialogTitle: '',
-      form: {
-        id: null,
-        name: '',
-        description: '',
-        productManagerId: null,
-        systemName: '',
-        initialWorkload: undefined,
-        initialAmount: undefined
-      },
-      rules: {
-        name: [{ required: true, message: '请输入需求名称', trigger: 'blur' }],
-        productManagerId: [{ required: true, message: '请选择产品经理', trigger: 'change' }],
-        systemName: [{ required: true, message: '请输入归属系统', trigger: 'blur' }],
-        initialWorkload: [{ required: true, message: '请输入初核工作量', trigger: 'blur' }],
-        initialAmount: [{ required: true, message: '请输入初核金额', trigger: 'blur' }]
-      },
       fillVisible: false,
       fillForm: {
         id: null,
@@ -227,8 +192,12 @@ export default {
     currentUser() {
       return this.$store.state.user.userInfo
     },
-    isDevAdmin() {
-      return this.currentUser.role === 'DEV_ADMIN'
+    isAdminOrDev() {
+      const role = this.currentUser.role
+      return role === 'DEV_ADMIN' || role === 'SYS_ADMIN'
+    },
+    isProductManager() {
+      return this.currentUser.role === 'PRODUCT_MANAGER'
     }
   },
   created() {
@@ -237,7 +206,7 @@ export default {
   },
   methods: {
     loadProductManagers() {
-      getUserList({ role: 'PRODUCT_MANAGER', current: 1, size: 1000 }).then(res => {
+      getProductManagers({ current: 1, size: 1000 }).then(res => {
         if (res.code === 200) {
           this.productManagers = res.data.records || []
         }
@@ -249,10 +218,18 @@ export default {
       if (status === 'APPROVED') return 'info'
       return ''
     },
+    canEdit(row) {
+      if (this.isAdminOrDev) return true
+      return this.isProductManager && row.status === 'PENDING' && row.productManagerId === this.currentUser.id
+    },
+    canDelete(row) {
+      return this.isAdminOrDev
+    },
     canFill(row) {
-      return this.currentUser.role === 'PRODUCT_MANAGER' &&
-        row.status === 'PENDING' &&
-        row.productManagerId === this.currentUser.id
+      return this.isProductManager && row.status === 'PENDING' && row.productManagerId === this.currentUser.id
+    },
+    canApprove(row) {
+      return this.isAdminOrDev && row.status === 'FILLED'
     },
     loadData() {
       this.loading = true
@@ -274,6 +251,7 @@ export default {
         name: '',
         systemName: '',
         status: '',
+        productManagerId: null,
         current: 1,
         size: 10
       }
@@ -288,50 +266,10 @@ export default {
       this.loadData()
     },
     handleAdd() {
-      this.dialogTitle = '新增需求'
-      this.form = {
-        id: null,
-        name: '',
-        description: '',
-        productManagerId: null,
-        systemName: '',
-        initialWorkload: undefined,
-        initialAmount: undefined
-      }
-      this.dialogVisible = true
-      this.$nextTick(() => {
-        this.$refs.formRef.clearValidate()
-      })
+      this.$router.push('/requirement/form')
     },
     handleEdit(row) {
-      this.dialogTitle = '编辑需求'
-      this.form = {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        productManagerId: row.productManagerId,
-        systemName: row.systemName,
-        initialWorkload: row.initialWorkload,
-        initialAmount: row.initialAmount
-      }
-      this.dialogVisible = true
-      this.$nextTick(() => {
-        this.$refs.formRef.clearValidate()
-      })
-    },
-    handleSubmit() {
-      this.$refs.formRef.validate(valid => {
-        if (!valid) return
-        const api = this.form.id ? updateRequirement : createRequirement
-        const promise = this.form.id ? api(this.form.id, this.form) : api(this.form)
-        promise.then(res => {
-          if (res.code === 200) {
-            this.$message.success('操作成功')
-            this.dialogVisible = false
-            this.loadData()
-          }
-        })
-      })
+      this.$router.push('/requirement/form/' + row.id)
     },
     handleDelete(row) {
       this.$confirm('确定要删除该需求吗？', '提示', {
@@ -364,6 +302,18 @@ export default {
           if (res.code === 200) {
             this.$message.success('填写成功')
             this.fillVisible = false
+            this.loadData()
+          }
+        })
+      })
+    },
+    handleApprove(row) {
+      this.$confirm(`确定要核定需求"${row.name}"吗？核定后状态将变为已核定。`, '提示', {
+        type: 'warning'
+      }).then(() => {
+        approveRequirement(row.id).then(res => {
+          if (res.code === 200) {
+            this.$message.success('核定成功')
             this.loadData()
           }
         })

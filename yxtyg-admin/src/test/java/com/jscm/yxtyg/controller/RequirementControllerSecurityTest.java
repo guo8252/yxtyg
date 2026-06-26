@@ -83,12 +83,12 @@ public class RequirementControllerSecurityTest {
     }
 
     @Test
-    public void update_productManager_forbidden() throws Exception {
+    public void update_productManager_ok() throws Exception {
         mockMvc.perform(put("/api/requirement/1")
                         .header("Authorization", tokenFor("PRODUCT_MANAGER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"需求\",\"productManagerId\":1,\"systemName\":\"系统\",\"initialWorkload\":1,\"initialAmount\":1}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test

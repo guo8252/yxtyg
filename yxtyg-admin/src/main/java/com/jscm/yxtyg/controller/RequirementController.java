@@ -45,8 +45,9 @@ public class RequirementController {
     }
 
     @PutMapping("/{id}")
-    public Result<Void> update(@PathVariable Long id, @RequestBody RequirementDTO dto) {
-        requirementService.update(id, dto);
+    public Result<Void> update(@PathVariable Long id, @RequestBody RequirementDTO dto,
+                                @AuthenticationPrincipal CurrentUser currentUser) {
+        requirementService.update(id, dto, currentUser.getUserId(), currentUser.getRole());
         return Result.success();
     }
 

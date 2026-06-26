@@ -102,6 +102,17 @@
 
       <!-- 主内容区 -->
       <el-container>
+        <el-header style="background-color: #fff; display: flex; align-items: center; justify-content: flex-end; box-shadow: 0 1px 4px rgba(0,0,0,.08); z-index: 1">
+          <el-dropdown v-if="currentUser.username" @command="handleCommand">
+            <span class="el-dropdown-link" style="cursor: pointer">
+              {{ currentUser.realName || currentUser.username }}
+              <i class="el-icon-arrow-down el-icon--right"></i>
+            </span>
+            <el-dropdown-menu slot="dropdown">
+              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </el-dropdown>
+        </el-header>
         <el-main class="app-main">
           <router-view />
         </el-main>
@@ -115,14 +126,29 @@ export default {
   name: 'App',
   computed: {
     activeMenu() {
-      return this.$route.path
+      const path = this.$route.path
+      if (path.startsWith('/requirement/form')) {
+        return '/requirement'
+      }
+      return path
+    },
+    currentUser() {
+      return this.$store.state.user.userInfo
     },
     isSysAdmin() {
-      return this.$store.state.user.userInfo.role === 'SYS_ADMIN'
+      return this.currentUser.role === 'SYS_ADMIN'
     },
     isDevOrAdmin() {
-      const role = this.$store.state.user.userInfo.role
+      const role = this.currentUser.role
       return role === 'DEV_ADMIN' || role === 'SYS_ADMIN' || role === 'PRODUCT_MANAGER'
+    }
+  },
+  methods: {
+    handleCommand(command) {
+      if (command === 'logout') {
+        this.$store.dispatch('user/logout')
+        this.$router.push('/login')
+      }
     }
   }
 }

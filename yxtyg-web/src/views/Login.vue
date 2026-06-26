@@ -43,8 +43,8 @@ export default {
             this.$message.success('登录成功')
             this.$router.push('/dashboard')
           })
-          .catch(err => {
-            this.$message.error(err.message || '登录失败')
+          .catch(() => {
+            // request.js 已统一提示错误信息
           })
           .finally(() => {
             this.loading = false

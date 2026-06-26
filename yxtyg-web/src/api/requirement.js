@@ -66,3 +66,10 @@ export function fillFinalWorkload(id, finalWorkload) {
     data: { finalWorkload }
   })
 }
+
+export function approveRequirement(id) {
+  return request({
+    url: `/requirement/${id}/approve`,
+    method: 'post'
+  })
+}

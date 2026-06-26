@@ -21,6 +21,12 @@ public class UserController {
         return Result.success(userService.queryPage(queryDTO));
     }
 
+    @GetMapping("/product-managers")
+    public Result<PageResult<UserVO>> productManagers(UserQueryDTO queryDTO) {
+        queryDTO.setRole("PRODUCT_MANAGER");
+        return Result.success(userService.queryPage(queryDTO));
+    }
+
     @PostMapping
     public Result<Void> create(@RequestBody UserDTO dto) {
         userService.create(dto);

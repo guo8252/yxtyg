@@ -34,15 +34,14 @@ service.interceptors.response.use(
     }
     const res = response.data
     if (res.code !== 200) {
-      // 业务错误（非200），使用顶部通知框提示，3秒后消失
+      // 业务错误（非200），提示后抛出异常让调用方 catch
       Notification({
         title: '提示',
         message: res.message || '请求失败',
         type: 'warning',
         duration: 3000
       })
-      // 返回数据，让调用方自行处理
-      return res
+      return Promise.reject(new Error(res.message || '请求失败'))
     }
     return res
   },

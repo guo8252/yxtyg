@@ -275,6 +275,9 @@ public class RequirementServiceImplTest {
     public void create_fail_invalid_product_manager() {
         RequirementDTO dto = new RequirementDTO();
         dto.setName("新需求");
+        dto.setSystemName("测试系统");
+        dto.setInitialWorkload(new BigDecimal("5.0"));
+        dto.setInitialAmount(new BigDecimal("1000.00"));
         dto.setProductManagerId(99L);
         when(userMapper.selectById(99L)).thenReturn(null);
 
