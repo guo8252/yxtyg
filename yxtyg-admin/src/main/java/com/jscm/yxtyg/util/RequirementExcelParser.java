@@ -43,8 +43,13 @@ public class RequirementExcelParser {
                 @Override
                 public void invoke(RequirementExcelDTO data, AnalysisContext context) {
                     rowIndex++;
+                    data.setRow(rowIndex);
                     if (data.getName() == null || data.getName().trim().isEmpty()) {
                         result.getFailDetails().add(new ParseResult.FailDetail(rowIndex, "需求名称不能为空"));
+                        return;
+                    }
+                    if (data.getSystemName() == null || data.getSystemName().trim().isEmpty()) {
+                        result.getFailDetails().add(new ParseResult.FailDetail(rowIndex, "归属系统不能为空"));
                         return;
                     }
                     result.getSuccessList().add(data);

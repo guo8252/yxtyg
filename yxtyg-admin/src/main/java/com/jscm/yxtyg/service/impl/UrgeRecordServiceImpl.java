@@ -17,7 +17,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,21 +52,57 @@ public class UrgeRecordServiceImpl extends ServiceImpl<UrgeRecordMapper, UrgeRec
         wrapper.orderByDesc(UrgeRecord::getCreateTime);
         Page<UrgeRecord> page = new Page<>(current, size);
         Page<UrgeRecord> result = this.page(page, wrapper);
-        List<UrgeRecordVO> voList = result.getRecords().stream().map(this::toVO).collect(Collectors.toList());
+        Map<Long, Requirement> requirementMap = batchRequirementMap(result.getRecords());
+        Map<Long, User> userMap = batchUserMap(result.getRecords());
+        List<UrgeRecordVO> voList = result.getRecords().stream()
+                .map(r -> toVO(r, requirementMap, userMap))
+                .collect(Collectors.toList());
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), voList);
     }
 
-    private UrgeRecordVO toVO(UrgeRecord record) {
+    private Map<Long, Requirement> batchRequirementMap(List<UrgeRecord> records) {
+        if (records == null || records.isEmpty()) {
+            return new HashMap<>();
+        }
+        List<Long> requirementIds = records.stream()
+                .map(UrgeRecord::getRequirementId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (requirementIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        return requirementMapper.selectBatchIds(requirementIds).stream()
+                .collect(Collectors.toMap(Requirement::getId, Function.identity(), (r1, r2) -> r1));
+    }
+
+    private Map<Long, User> batchUserMap(List<UrgeRecord> records) {
+        if (records == null || records.isEmpty()) {
+            return new HashMap<>();
+        }
+        List<Long> operatorIds = records.stream()
+                .map(UrgeRecord::getOperatorId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (operatorIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        return userMapper.selectBatchIds(operatorIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity(), (u1, u2) -> u1));
+    }
+
+    private UrgeRecordVO toVO(UrgeRecord record, Map<Long, Requirement> requirementMap, Map<Long, User> userMap) {
         UrgeRecordVO vo = new UrgeRecordVO();
         vo.setId(record.getId());
         vo.setRequirementId(record.getRequirementId());
         vo.setOperatorId(record.getOperatorId());
         vo.setCreateTime(record.getCreateTime());
-        Requirement req = requirementMapper.selectById(record.getRequirementId());
+        Requirement req = requirementMap.get(record.getRequirementId());
         if (req != null) {
             vo.setRequirementName(req.getName());
         }
-        User user = userMapper.selectById(record.getOperatorId());
+        User user = userMap.get(record.getOperatorId());
         if (user != null) {
             vo.setOperatorName(user.getRealName());
         }

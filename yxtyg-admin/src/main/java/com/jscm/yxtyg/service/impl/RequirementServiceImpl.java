@@ -28,9 +28,12 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -68,15 +71,21 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
 
         Page<Requirement> page = new Page<>(queryDTO.getCurrent(), queryDTO.getSize());
         Page<Requirement> result = this.page(page, wrapper);
-        List<RequirementVO> voList = result.getRecords().stream().map(this::toVO).collect(Collectors.toList());
+        Map<Long, User> userMap = batchUserMap(result.getRecords());
+        List<RequirementVO> voList = result.getRecords().stream()
+                .map(req -> toVO(req, userMap))
+                .collect(Collectors.toList());
         return PageResult.of(result.getTotal(), result.getCurrent(), result.getSize(), voList);
     }
 
     @Override
-    public RequirementDetailVO getDetail(Long id) {
+    public RequirementDetailVO getDetail(Long id, Long currentUserId, String role) {
         Requirement req = this.getById(id);
         if (req == null) {
             throw new BusinessException("需求不存在");
+        }
+        if ("PRODUCT_MANAGER".equals(role) && !Objects.equals(req.getProductManagerId(), currentUserId)) {
+            throw new BusinessException("无权限查看该需求");
         }
         return (RequirementDetailVO) toVO(req);
     }
@@ -84,6 +93,7 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void create(RequirementDTO dto) {
+        validateProductManager(dto.getProductManagerId());
         Requirement req = new Requirement();
         BeanUtils.copyProperties(dto, req);
         req.setStatus(STATUS_PENDING);
@@ -98,7 +108,8 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
         if (req == null) {
             throw new BusinessException("需求不存在");
         }
-        BeanUtils.copyProperties(dto, req);
+        validateProductManager(dto.getProductManagerId());
+        BeanUtils.copyProperties(dto, req, "status");
         req.setId(id);
         recalculateReduced(req);
         this.updateById(req);
@@ -116,26 +127,45 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
         Map<String, Object> result = new HashMap<>();
         RequirementExcelParser.ParseResult parseResult = excelParser.parse(file);
 
-        if (parseResult.getSuccessList().isEmpty() && !parseResult.getFailDetails().isEmpty()) {
+        List<RequirementExcelParser.ParseResult.FailDetail> failDetails = new ArrayList<>(parseResult.getFailDetails());
+        List<RequirementExcelDTO> candidateList = new ArrayList<>(parseResult.getSuccessList());
+
+        Map<String, Long> nameCount = candidateList.stream()
+                .collect(Collectors.groupingBy(d -> d.getName().trim(), Collectors.counting()));
+        Set<String> existingNames = queryExistingNames(nameCount.keySet());
+
+        List<RequirementExcelDTO> validList = new ArrayList<>();
+        for (RequirementExcelDTO dto : candidateList) {
+            String name = dto.getName().trim();
+            if (nameCount.get(name) > 1) {
+                failDetails.add(new RequirementExcelParser.ParseResult.FailDetail(dto.getRow(), "需求名称重复"));
+                continue;
+            }
+            if (existingNames.contains(name)) {
+                failDetails.add(new RequirementExcelParser.ParseResult.FailDetail(dto.getRow(), "需求名称已存在"));
+                continue;
+            }
+            validList.add(dto);
+        }
+
+        if (validList.isEmpty() && !failDetails.isEmpty()) {
             result.put("successCount", 0);
-            result.put("failCount", parseResult.getFailDetails().size());
-            result.put("failDetails", parseResult.getFailDetails());
+            result.put("failCount", failDetails.size());
+            result.put("failDetails", failDetails);
             result.put("message", "导入失败，请检查Excel数据");
             return result;
         }
 
         int successCount = 0;
-        List<RequirementExcelParser.ParseResult.FailDetail> failDetails = new ArrayList<>(parseResult.getFailDetails());
         Map<String, User> userCache = new HashMap<>();
+        List<Requirement> saveList = new ArrayList<>();
 
-        int rowIndex = 1;
-        for (RequirementExcelDTO dto : parseResult.getSuccessList()) {
-            rowIndex++;
+        for (RequirementExcelDTO dto : validList) {
             try {
                 User pm = userCache.computeIfAbsent(dto.getProductManagerName(),
                         name -> userMapper.selectByUsername(name));
                 if (pm == null || !"PRODUCT_MANAGER".equals(pm.getRole())) {
-                    failDetails.add(new RequirementExcelParser.ParseResult.FailDetail(rowIndex, "产品经理不存在"));
+                    failDetails.add(new RequirementExcelParser.ParseResult.FailDetail(dto.getRow(), "产品经理不存在"));
                     continue;
                 }
                 Requirement req = new Requirement();
@@ -144,15 +174,19 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
                 req.setProductManagerId(pm.getId());
                 req.setSystemName(dto.getSystemName());
                 req.setInitialWorkload(parseDecimal(dto.getInitialWorkload(), "初核工作量"));
-                req.setInitialAmount(parseDecimal(dto.getInitialAmount(), "初核金额"));
+                req.setInitialAmount(parseNonNegativeDecimal(dto.getInitialAmount(), "初核金额"));
                 req.setFinalWorkload(parseNullableDecimal(dto.getFinalWorkload()));
                 req.setStatus(parseStatus(dto.getStatus()));
                 recalculateReduced(req);
-                this.save(req);
+                saveList.add(req);
                 successCount++;
             } catch (BusinessException e) {
-                failDetails.add(new RequirementExcelParser.ParseResult.FailDetail(rowIndex, e.getMessage()));
+                failDetails.add(new RequirementExcelParser.ParseResult.FailDetail(dto.getRow(), e.getMessage()));
             }
+        }
+
+        if (!saveList.isEmpty()) {
+            this.saveBatch(saveList, 100);
         }
 
         result.put("successCount", successCount);
@@ -187,10 +221,10 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
         if (req == null) {
             throw new BusinessException("需求不存在");
         }
-        if (!"PRODUCT_MANAGER".equals(role) && !"DEV_ADMIN".equals(role)) {
+        if (!"PRODUCT_MANAGER".equals(role)) {
             throw new BusinessException("无权限");
         }
-        if ("PRODUCT_MANAGER".equals(role) && !Objects.equals(req.getProductManagerId(), currentUserId)) {
+        if (!Objects.equals(req.getProductManagerId(), currentUserId)) {
             throw new BusinessException("只能填写自己负责的需求");
         }
         if (!STATUS_PENDING.equals(req.getStatus())) {
@@ -200,6 +234,60 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
         req.setStatus(STATUS_FILLED);
         recalculateReduced(req);
         this.updateById(req);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void approve(Long id) {
+        Requirement req = this.getById(id);
+        if (req == null) {
+            throw new BusinessException("需求不存在");
+        }
+        if (!STATUS_FILLED.equals(req.getStatus())) {
+            throw new BusinessException("只能核定已填写状态的需求");
+        }
+        req.setStatus(STATUS_APPROVED);
+        this.updateById(req);
+    }
+
+    private void validateProductManager(Long productManagerId) {
+        if (productManagerId == null) {
+            throw new BusinessException("产品经理不能为空");
+        }
+        User user = userMapper.selectById(productManagerId);
+        if (user == null || !"PRODUCT_MANAGER".equals(user.getRole())) {
+            throw new BusinessException("产品经理不存在或角色不正确");
+        }
+    }
+
+    private Set<String> queryExistingNames(Set<String> names) {
+        if (names == null || names.isEmpty()) {
+            return new HashSet<>();
+        }
+        LambdaQueryWrapper<Requirement> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(Requirement::getName, names);
+        List<Requirement> list = this.list(wrapper);
+        if (list == null) {
+            return new HashSet<>();
+        }
+        return list.stream()
+                .map(r -> r.getName().trim())
+                .collect(Collectors.toSet());
+    }
+
+    private Map<Long, User> batchUserMap(List<Requirement> records) {
+        if (records == null || records.isEmpty()) {
+            return new HashMap<>();
+        }
+        Set<Long> userIds = records.stream()
+                .map(Requirement::getProductManagerId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (userIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        return userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity(), (u1, u2) -> u1));
     }
 
     private void recalculateReduced(Requirement req) {
@@ -218,6 +306,21 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
             BigDecimal d = new BigDecimal(value.trim());
             if (d.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessException(fieldName + "必须大于0");
+            }
+            return d;
+        } catch (NumberFormatException e) {
+            throw new BusinessException(fieldName + "格式错误");
+        }
+    }
+
+    private BigDecimal parseNonNegativeDecimal(String value, String fieldName) {
+        if (!StringUtils.hasText(value)) {
+            throw new BusinessException(fieldName + "不能为空");
+        }
+        try {
+            BigDecimal d = new BigDecimal(value.trim());
+            if (d.compareTo(BigDecimal.ZERO) < 0) {
+                throw new BusinessException(fieldName + "不能小于0");
             }
             return d;
         } catch (NumberFormatException e) {
@@ -248,9 +351,13 @@ public class RequirementServiceImpl extends ServiceImpl<RequirementMapper, Requi
     }
 
     private RequirementVO toVO(Requirement req) {
+        return toVO(req, null);
+    }
+
+    private RequirementVO toVO(Requirement req, Map<Long, User> userMap) {
         RequirementVO vo = new RequirementDetailVO();
         BeanUtils.copyProperties(req, vo);
-        User pm = userMapper.selectById(req.getProductManagerId());
+        User pm = userMap != null ? userMap.get(req.getProductManagerId()) : userMapper.selectById(req.getProductManagerId());
         if (pm != null) {
             vo.setProductManagerName(pm.getRealName());
         }

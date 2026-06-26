@@ -12,11 +12,12 @@ import java.util.Map;
 
 public interface RequirementService {
     PageResult<RequirementVO> queryPage(RequirementQueryDTO queryDTO, Long currentUserId, String role);
-    RequirementDetailVO getDetail(Long id);
+    RequirementDetailVO getDetail(Long id, Long currentUserId, String role);
     void create(RequirementDTO dto);
     void update(Long id, RequirementDTO dto);
     void delete(Long id);
     Map<String, Object> importExcel(MultipartFile file);
     byte[] downloadTemplate();
     void fillFinalWorkload(Long id, Long currentUserId, String role, BigDecimal finalWorkload);
+    void approve(Long id);
 }

@@ -133,7 +133,16 @@ export default {
       rules: {
         username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
         realName: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-        password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+        password: [{
+          validator: (rule, value, callback) => {
+            if (!this.form.id && !value) {
+              callback(new Error('请输入密码'))
+            } else {
+              callback()
+            }
+          },
+          trigger: 'blur'
+        }],
         role: [{ required: true, message: '请选择角色', trigger: 'change' }],
         status: [{ required: true, message: '请选择状态', trigger: 'change' }]
       }

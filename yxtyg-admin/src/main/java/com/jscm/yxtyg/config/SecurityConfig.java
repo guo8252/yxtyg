@@ -4,6 +4,7 @@ import com.jscm.yxtyg.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -34,6 +35,11 @@ public class SecurityConfig {
                 .antMatchers("/api/auth/login").permitAll()
                 .antMatchers("/api/user/**").hasRole("SYS_ADMIN")
                 .antMatchers("/api/urge/**").hasRole("DEV_ADMIN")
+                .antMatchers(HttpMethod.POST, "/api/requirement").hasAnyRole("DEV_ADMIN", "SYS_ADMIN")
+                .antMatchers(HttpMethod.PUT, "/api/requirement/*").hasAnyRole("DEV_ADMIN", "SYS_ADMIN")
+                .antMatchers(HttpMethod.DELETE, "/api/requirement/*").hasAnyRole("DEV_ADMIN", "SYS_ADMIN")
+                .antMatchers(HttpMethod.POST, "/api/requirement/*/fill").hasRole("PRODUCT_MANAGER")
+                .antMatchers(HttpMethod.POST, "/api/requirement/*/approve").hasAnyRole("DEV_ADMIN", "SYS_ADMIN")
                 .antMatchers("/api/requirement/**").authenticated()
                 .anyRequest().authenticated();
 

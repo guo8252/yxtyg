@@ -33,8 +33,9 @@ public class RequirementController {
     }
 
     @GetMapping("/detail/{id}")
-    public Result<RequirementDetailVO> detail(@PathVariable Long id) {
-        return Result.success(requirementService.getDetail(id));
+    public Result<RequirementDetailVO> detail(@PathVariable Long id,
+                                              @AuthenticationPrincipal CurrentUser currentUser) {
+        return Result.success(requirementService.getDetail(id, currentUser.getUserId(), currentUser.getRole()));
     }
 
     @PostMapping
@@ -67,6 +68,12 @@ public class RequirementController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=requirement_template.xlsx")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(data);
+    }
+
+    @PostMapping("/{id}/approve")
+    public Result<Void> approve(@PathVariable Long id) {
+        requirementService.approve(id);
+        return Result.success();
     }
 
     @PostMapping("/{id}/fill")

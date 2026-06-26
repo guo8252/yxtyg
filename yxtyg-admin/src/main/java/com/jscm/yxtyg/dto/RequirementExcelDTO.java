@@ -44,4 +44,6 @@ public class RequirementExcelDTO {
     @ExcelProperty("需求状态")
     @ColumnWidth(15)
     private String status;
+
+    private Integer row;
 }
