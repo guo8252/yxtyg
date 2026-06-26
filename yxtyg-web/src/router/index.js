@@ -85,6 +85,12 @@ const routes = [
     name: 'VectorSearch',
     component: () => import('../views/VectorSearch.vue'),
     meta: { title: '向量搜索' }
+  },
+  {
+    path: '/user',
+    name: 'User',
+    component: () => import('../views/User.vue'),
+    meta: { title: '用户管理' }
   }
 ]
 
