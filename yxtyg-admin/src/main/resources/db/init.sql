@@ -251,7 +251,7 @@ INSERT INTO t_agent_config (agent_code, agent_name, description, temperature, to
 时间格式处理：
 - 转换为当年日期，格式为yyyy-MM-dd
 只输出JSON数组：[{"city":"","organizer":"","trainingContent":"","trainingTime":"","coverageCount":""}]',
-'{content}', 2048),
+'{content}', 2048);
 
 -- =============================================
 -- MySQL 配置建议
