@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { Message, Notification } from 'element-ui'
+import store from '@/store'
 
 // 创建axios实例
 const service = axios.create({
@@ -13,6 +14,10 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   config => {
+    const token = store.state.user.token
+    if (token) {
+      config.headers['Authorization'] = 'Bearer ' + token
+    }
     return config
   },
   error => {
@@ -40,8 +45,13 @@ service.interceptors.response.use(
   },
   error => {
     console.error('响应错误：', error)
-    // 系统错误（网络错误、服务器500等），使用消息框提示
-    Message.error(error.message || '网络错误')
+    if (error.response && error.response.status === 401) {
+      store.dispatch('user/logout')
+      window.location.href = '/login'
+    } else {
+      // 系统错误（网络错误、服务器500等），使用消息框提示
+      Message.error(error.message || '网络错误')
+    }
     return Promise.reject(error)
   }
 )
