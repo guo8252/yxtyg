@@ -9,6 +9,12 @@ const routes = [
     redirect: '/dashboard'
   },
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('../views/Login.vue'),
+    meta: { title: '登录', public: true }
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('../views/Dashboard.vue'),
@@ -78,7 +84,12 @@ router.beforeEach((to, from, next) => {
   if (to.meta.title) {
     document.title = to.meta.title + ' - 一线体验官专项数据分析系统'
   }
-  next()
+  const token = localStorage.getItem('yxtyg_token')
+  if (!to.meta.public && !token) {
+    next('/login')
+  } else {
+    next()
+  }
 })
 
 export default router
