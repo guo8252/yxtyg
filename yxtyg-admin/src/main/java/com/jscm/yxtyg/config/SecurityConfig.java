@@ -33,6 +33,7 @@ public class SecurityConfig {
                 .authorizeRequests()
                 .antMatchers("/", "/index.html", "/static/**", "/js/**", "/css/**", "/fonts/**", "/favicon.ico").permitAll()
                 .antMatchers("/api/auth/login").permitAll()
+                .antMatchers(HttpMethod.GET, "/api/user/list").authenticated()
                 .antMatchers("/api/user/**").hasRole("SYS_ADMIN")
                 .antMatchers("/api/urge/**").hasRole("DEV_ADMIN")
                 .antMatchers(HttpMethod.POST, "/api/requirement").hasAnyRole("DEV_ADMIN", "SYS_ADMIN")
