@@ -254,6 +254,68 @@ INSERT INTO t_agent_config (agent_code, agent_name, description, temperature, to
 '{content}', 2048);
 
 -- =============================================
+-- 11. 用户表
+-- =============================================
+DROP TABLE IF EXISTS t_user;
+CREATE TABLE t_user (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    username VARCHAR(50) NOT NULL COMMENT '登录账号',
+    real_name VARCHAR(50) DEFAULT NULL COMMENT '真实姓名',
+    password VARCHAR(100) NOT NULL COMMENT '密码（BCrypt加密）',
+    role VARCHAR(20) NOT NULL COMMENT '角色：PRODUCT_MANAGER/DEV_ADMIN/SYS_ADMIN',
+    status TINYINT DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted TINYINT DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_username (username),
+    KEY idx_role (role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+-- =============================================
+-- 12. 需求表
+-- =============================================
+DROP TABLE IF EXISTS t_requirement;
+CREATE TABLE t_requirement (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    name VARCHAR(200) NOT NULL COMMENT '需求名称',
+    description TEXT COMMENT '需求描述',
+    product_manager_id BIGINT NOT NULL COMMENT '产品经理ID',
+    system_name VARCHAR(100) NOT NULL COMMENT '归属系统',
+    initial_workload DECIMAL(10,2) NOT NULL COMMENT '初核工作量（人天）',
+    initial_amount DECIMAL(12,2) NOT NULL COMMENT '初核金额（元）',
+    final_workload DECIMAL(10,2) DEFAULT NULL COMMENT '最终核定工作量（人天）',
+    reduced_workload DECIMAL(10,2) DEFAULT NULL COMMENT '核减工作量（人天）',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING/FILLED/APPROVED',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    deleted TINYINT DEFAULT 0 COMMENT '逻辑删除',
+    PRIMARY KEY (id),
+    KEY idx_product_manager_id (product_manager_id),
+    KEY idx_status (status),
+    KEY idx_system_name (system_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='需求表';
+
+-- =============================================
+-- 13. 催办记录表
+-- =============================================
+DROP TABLE IF EXISTS t_urge_record;
+CREATE TABLE t_urge_record (
+    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    requirement_id BIGINT NOT NULL COMMENT '需求ID',
+    operator_id BIGINT NOT NULL COMMENT '操作人ID',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '催办时间',
+    deleted TINYINT DEFAULT 0 COMMENT '逻辑删除',
+    PRIMARY KEY (id),
+    KEY idx_requirement_id (requirement_id),
+    KEY idx_operator_id (operator_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='催办记录表';
+
+-- 初始化默认系统管理员
+INSERT INTO t_user (username, real_name, password, role, status) VALUES
+('admin', '系统管理员', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EO', 'SYS_ADMIN', 1);
+
+-- =============================================
 -- MySQL 配置建议
 -- =============================================
 
